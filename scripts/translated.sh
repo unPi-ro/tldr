@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# quick aws translate.sh for your pages
+# same as aws translate.sh but using DeepL
 
-which aws shyaml &>/dev/null || { echo "no aws or shyaml tools, exiting"; exit 1; }
+which jq &>/dev/null || { echo "no jq tools, exiting"; exit 1; }
 
 # default ro
 lang=${1:-ro}
@@ -15,7 +15,6 @@ echo "switching workdir to $path"
 cd "$path"
 mkdir -p ../"$path.$lang"/{common,linux}
 
-# today/2021 they fit aws free tier
 for file in {common,linux}/*.md; do
   name=$(basename "$file")
   echo -n "processing $name "
@@ -25,9 +24,10 @@ for file in {common,linux}/*.md; do
   do
     # select lines to be translated
     if [[ "$line" =~ ^[-\>] ]]; then
-      aws translate translate-text --source-language-code "en" \
-        --target-language-code "$lang" --text "$line" --output yaml |
-        shyaml get-value TranslatedText >> "../$path.$lang/$file"
+      oline=$(curl -s https://api.deepl.com/v2/translate \
+        -d auth_key="$YourOwnDeepLAuthKey" -d "text=$line" \
+        -d "target_lang=$lang" | jq -r '.translations[0].text')
+      echo -n "$oline" >> "../$path.$lang/$file"
       echo >> "../$path.$lang/$file"
       echo -n .
     else
@@ -37,6 +37,8 @@ for file in {common,linux}/*.md; do
   done <"$file"
   echo
 done
+
+exit
 
 # last minute fixes for ro
 if [ "$lang" = "ro" ]; then
